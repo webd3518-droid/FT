@@ -23,7 +23,7 @@ jobs:
 
       - name: Run scraper
         env:
-          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }} # This connects your Secret to the code
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }} 
         run: python scraper.py
 
       - name: Commit and Push results

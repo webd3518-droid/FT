@@ -1,50 +1,34 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Odds Likelihood Predictor</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
-        .box { border: 1px solid #ccc; padding: 15px; border-radius: 8px; margin-bottom: 20px; background: #f9f9f9; }
-        .trend { font-weight: bold; color: #2c3e50; }
-        .high { color: #27ae60; font-size: 1.2em; }
+        .game-card { border: 2px solid #333; margin: 20px 0; padding: 15px; border-radius: 10px; font-family: sans-serif; }
+        .win { color: green; font-weight: bold; }
+        .trend { background: #eee; padding: 5px; }
     </style>
 </head>
 <body>
-    <h1>Football Odds Analysis</h1>
-    
-    <div class="box">
-        <h3>Likelihood Based on History</h3>
-        <p id="stats">Loading calculations...</p>
-    </div>
-
-    <div class="box">
-        <h3>2 Most Recent Outcomes</h3>
-        <p id="recent" class="high">...</p>
-    </div>
-
-    <h3>Last 10 Match History</h3>
-    <div id="outcomes">...</div>
+    <h1>Multi-Game Analysis</h1>
+    <div id="container"></div>
 
     <script>
         fetch('results.json')
             .then(res => res.json())
             .then(data => {
-                // Show Stats
-                document.getElementById('stats').innerHTML = `
-                    Home Win: ${data.stats.home_win_pct}% <br>
-                    Draw: ${data.stats.draw_pct}% <br>
-                    Away Win: ${data.stats.away_win_pct}%
-                `;
-
-                // Show Recent Trend
-                document.getElementById('recent').innerText = data.recent_outcomes.join(" , ");
-
-                // Show List
-                let html = '<ul>';
-                data.history.reverse().forEach(m => {
-                    html += `<li>${m.match} | Result: <b>${m.result}</b></li>`;
+                const container = document.getElementById('container');
+                data.forEach((game, index) => {
+                    container.innerHTML += `
+                        <div class="game-card">
+                            <h2>Game ${index + 1} (Odds: ${game.odds})</h2>
+                            <p class="win">Likelihood: Home ${game.stats.H}% | Draw ${game.stats.D}% | Away ${game.stats.A}%</p>
+                            <p class="trend">Recent 2 Outcomes: ${game.recent.join(" , ")}</p>
+                            <details>
+                                <summary>View 10 Match History</summary>
+                                <ul>${game.history.map(h => `<li>${h}</li>`).join("")}</ul>
+                            </details>
+                        </div>
+                    `;
                 });
-                document.getElementById('outcomes').innerHTML = html + '</ul>';
             });
     </script>
 </body>

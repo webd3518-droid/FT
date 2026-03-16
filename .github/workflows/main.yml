@@ -1,33 +1,32 @@
-name: Update Odds
-on: 
-  push:
-    branches: [ main ]
-  workflow_dispatch: # This adds a "Run" button so you can test manually
+name: Update Odds Analysis
+on:
+  workflow_dispatch: # This creates the "Run" button
+    inputs:
+      game_odds:
+        description: 'Enter Odds (Home, Draw, Away)'
+        required: true
+        default: '1.85, 3.40, 4.20'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # This gives the bot permission to save the JSON file
+      contents: write
     steps:
       - uses: actions/checkout@v3
-      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          
       - name: Install Dependencies
-        run: |
-          pip install pandas requests
-          
+        run: pip install pandas
       - name: Run Scraper
-        run: python scraper.py
-        
-      - name: Commit and Push
+        # This tells the script to use the odds you typed in the box
+        run: python scraper.py "${{ github.event.inputs.game_odds }}"
+      - name: Commit Data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add results.json
-          git commit -m "Update match data" || echo "No changes to commit"
+          git commit -m "Analyzed new game" || exit 0
           git push

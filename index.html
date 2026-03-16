@@ -1,33 +1,71 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Multi-Game Odds Analyzer</title>
+    <title>Odds Likelihood Predictor</title>
     <style>
-        .card { border: 2px solid #333; margin: 10px; padding: 15px; border-radius: 10px; display: inline-block; width: 300px; vertical-align: top; background: #f4f4f4; }
-        .win { color: green; font-weight: bold; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f0f2f5; }
+        .dashboard { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .card { border: none; padding: 20px; border-radius: 12px; width: 300px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .stat-row { display: flex; justify-content: space-between; margin: 10px 0; font-weight: bold; }
+        .recent-box { background: #e8f5e9; padding: 10px; border-radius: 8px; text-align: center; color: #2e7d32; }
+        .debug-panel { margin-top: 50px; padding: 15px; background: #333; color: #00ff00; font-family: monospace; border-radius: 8px; font-size: 12px; }
+        h1 { text-align: center; color: #1a73e8; }
     </style>
 </head>
 <body>
-    <h1>Multi-Game Odds Dashboard (up to 17 Games)</h1>
-    <div id="dashboard"></div>
+    <h1>Football Odds Dashboard</h1>
+    
+    <div id="dashboard" class="dashboard">
+        </div>
+
+    <div class="debug-panel">
+        <strong>System Status:</strong>
+        <div id="debug-log">Initialising...</div>
+    </div>
 
     <script>
+        const log = (msg) => {
+            document.getElementById('debug-log').innerHTML += `<br>> ${msg}`;
+        };
+
+        log("Attempting to fetch results.json...");
+
         fetch('results.json')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error(`File not found (Status: ${res.status})`);
+                return res.json();
+            })
             .then(data => {
                 const container = document.getElementById('dashboard');
+                
+                if (data.length === 0) {
+                    log("Warning: results.json is EMPTY []. Check your scraper.py logic.");
+                    container.innerHTML = "<p>No matches found in history for these odds. Try adjusting target_link.txt.</p>";
+                    return;
+                }
+
+                log(`Success! Found ${data.length} analyzed games.`);
+                
                 data.forEach(game => {
                     container.innerHTML += `
                         <div class="card">
                             <h3>Odds: ${game.target_odds}</h3>
-                            <p><b>Probabilities:</b><br>
-                               Home: ${game.stats.home}% | Draw: ${game.stats.draw}% | Away: ${game.stats.away}%
+                            <div class="stat-row"><span>Home Win:</span> <span>${game.stats.home}%</span></div>
+                            <div class="stat-row"><span>Draw:</span> <span>${game.stats.draw}%</span></div>
+                            <div class="stat-row"><span>Away Win:</span> <span>${game.stats.away}%</span></div>
+                            <div class="recent-box">
+                                <strong>Recent Trend:</strong> ${game.recent.join(" , ")}
+                            </div>
+                            <p style="font-size:11px; color:#666; margin-top:15px;">
+                                <strong>History:</strong><br> ${game.history.slice(0, 3).join("<br> ")}...
                             </p>
-                            <p><b>Recent Trend:</b> <span class="win">${game.recent.join(" , ")}</span></p>
-                            <small>History: ${game.history.slice(-3).join(" | ")}...</small>
                         </div>
                     `;
                 });
+            })
+            .catch(err => {
+                log(`ERROR: ${err.message}`);
+                document.getElementById('dashboard').innerHTML = `<p style="color:red;">Error loading data. Check the debug panel below.</p>`;
             });
     </script>
 </body>

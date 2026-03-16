@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head><title>Odds Analyzer</title></head>
+<body>
+    <h2>Last 10 Matches with These Odds</h2>
+    <div id="outcomes">Loading...</div>
+    <script>
+        fetch('results.json')
+            .then(res => res.json())
+            .then(data => {
+                let html = '<ul>';
+                data.forEach(m => {
+                    html += `<li>${m.match} - <b>Result: ${m.result}</b> (Odds: ${m.odds})</li>`;
+                });
+                document.getElementById('outcomes').innerHTML = html + '</ul>';
+            });
+    </script>
+</body>
+</html>

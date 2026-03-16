@@ -3,7 +3,6 @@ import json
 import os
 import time
 
-# Pulls the key from GitHub Secrets
 API_KEY = os.getenv("RAPIDAPI_KEY")
 API_HOST = "flashlive-sports.p.rapidapi.com"
 
@@ -13,13 +12,30 @@ def fetch_worldwide_history(h, d, a):
         "X-RapidAPI-Key": API_KEY,
         "X-RapidAPI-Host": API_HOST
     }
-    params = {"home": h, "draw": d, "away": a}
+    
+    # NEW: We use a small range (tolerance) because exact 18.09 is rare.
+    # We ask the API for anything similar to these odds.
+    params = {
+        "home": h,
+        "draw": d,
+        "away": a,
+        "tolerance": 0.05 # Look for matches within 5% of these odds
+    }
     
     try:
         response = requests.get(url, headers=headers, params=params, timeout=15)
         data = response.json()
+        
+        # Check if 'data' exists and has content
         matches = data.get('data', [])
         
+        if not matches:
+            # If still nothing, we try one more time with a wider range for high odds
+            if h > 10 or a > 10:
+                params["tolerance"] = 0.10
+                response = requests.get(url, headers=headers, params=params, timeout=15)
+                matches = response.json().get('data', [])
+            
         if not matches: return None
 
         total = len(matches)
@@ -31,17 +47,17 @@ def fetch_worldwide_history(h, d, a):
             "odds": f"{h} | {d} | {a}",
             "count": total,
             "percentage": {
-                "Home": round((h_wins/total)*100) if total > 0 else 0,
-                "Draw": round((draws/total)*100) if total > 0 else 0,
-                "Away": round((a_wins/total)*100) if total > 0 else 0
+                "Home": round((h_wins/total)*100),
+                "Draw": round((draws/total)*100),
+                "Away": round((a_wins/total)*100)
             },
             "past_games": [f"{m.get('home_team')} vs {m.get('away_team')} ({m.get('result')})" for m in matches[:5]]
         }
     except Exception as e:
-        print(f"Error fetching {h},{d},{a}: {e}")
+        print(f"API Error: {e}")
         return None
 
-# Load odds from target_link.txt
+# Standard Execution Logic
 results = []
 if os.path.exists('target_link.txt'):
     with open('target_link.txt', 'r') as f:
@@ -49,7 +65,7 @@ if os.path.exists('target_link.txt'):
             if ',' not in line: continue
             try:
                 odds = [float(x.strip()) for x in line.split(',')]
-                time.sleep(1.5) # Protects your free tier quota
+                time.sleep(1.5) 
                 res = fetch_worldwide_history(odds[0], odds[1], odds[2])
                 if res: results.append(res)
             except: continue

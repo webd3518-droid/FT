@@ -1,0 +1,21 @@
+name: Update Odds
+on: [push] # Runs every time you save a change
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install Dependencies
+        run: pip install pandas
+      - name: Run Scraper
+        run: python scraper.py
+      - name: Commit Data
+        run: |
+          git config user.name "GitHub Action"
+          git add results.json
+          git commit -m "Updated match data" || exit 0
+          git push

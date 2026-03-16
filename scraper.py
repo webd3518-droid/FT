@@ -1,7 +1,7 @@
 import pandas as pd
 import json
 
-# List of multiple leagues to increase data size
+# We now check 5 major leagues to find more historical matches
 LEAGUES = [
     "https://www.football-data.co.uk/mmz4281/2324/E0.csv", # England
     "https://www.football-data.co.uk/mmz4281/2324/SP1.csv", # Spain
@@ -34,17 +34,27 @@ def analyze_game(h_odds, d_odds, a_odds, df):
     }
 
 # Combine all leagues into one big database
-all_dfs = [pd.read_csv(url) for url in LEAGUES]
+all_dfs = []
+for url in LEAGUES:
+    try:
+        all_dfs.append(pd.read_csv(url))
+    except:
+        continue
+
 df_historical = pd.concat(all_dfs, ignore_index=True)
 
 all_results = []
 with open('target_link.txt', 'r') as f:
     for line in f:
         try:
+            line = line.strip()
+            if not line: continue
             odds = [float(x.strip()) for x in line.split(',')]
             res = analyze_game(odds[0], odds[1], odds[2], df_historical)
-            if res: all_results.append(res)
-        except: continue
+            if res: 
+                all_results.append(res)
+        except Exception as e:
+            print(f"Skipping line due to error: {line}")
 
 with open('results.json', 'w') as f:
     json.dump(all_results, f)

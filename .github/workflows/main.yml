@@ -1,32 +1,35 @@
-name: Update Odds Analysis
+name: Odds Scraper Run
+
 on:
-  workflow_dispatch: # This creates the "Run" button
-    inputs:
-      game_odds:
-        description: 'Enter Odds (Home, Draw, Away)'
-        required: true
-        default: '1.85, 3.40, 4.20'
+  push:
+    paths:
+      - 'target_link.txt'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-      - name: Install Dependencies
-        run: pip install pandas
-      - name: Run Scraper
-        # This tells the script to use the odds you typed in the box
-        run: python scraper.py "${{ github.event.inputs.game_odds }}"
-      - name: Commit Data
+
+      - name: Install dependencies
+        run: pip install requests pandas
+
+      - name: Run scraper
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }} # This connects your Secret to the code
+        run: python scraper.py
+
+      - name: Commit and Push results
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
           git add results.json
-          git commit -m "Analyzed new game" || exit 0
+          git commit -m "Update historical odds data" || exit 0
           git push

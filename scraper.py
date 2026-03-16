@@ -3,38 +3,26 @@ import json
 import os
 import time
 
-# This pulls the key safely from GitHub Secrets
+# Pulls the key from GitHub Secrets
 API_KEY = os.getenv("RAPIDAPI_KEY")
-# The endpoint for the FlashLive Sports API on RapidAPI
 API_HOST = "flashlive-sports.p.rapidapi.com"
 
 def fetch_worldwide_history(h, d, a):
     url = f"https://{API_HOST}/v1/results/search-by-odds"
-    
     headers = {
         "X-RapidAPI-Key": API_KEY,
         "X-RapidAPI-Host": API_HOST
     }
-    
-    # Searching global history for these exact odds
-    # Note: We use a small tolerance to ensure we find matches in the global database
-    params = {
-        "home": h, 
-        "draw": d, 
-        "away": a
-    }
+    params = {"home": h, "draw": d, "away": a}
     
     try:
-        response = requests.get(url, headers=headers, params=params)
+        response = requests.get(url, headers=headers, params=params, timeout=15)
         data = response.json()
-        
-        # Flashscore API typically returns a list of events in the 'data' or 'response' key
         matches = data.get('data', [])
-        if not matches:
-            return None
+        
+        if not matches: return None
 
         total = len(matches)
-        # Outcome logic: H = Home Win, D = Draw, A = Away Win
         h_wins = len([m for m in matches if m.get('result') == 'H'])
         draws = len([m for m in matches if m.get('result') == 'D'])
         a_wins = len([m for m in matches if m.get('result') == 'A'])
@@ -50,26 +38,21 @@ def fetch_worldwide_history(h, d, a):
             "past_games": [f"{m.get('home_team')} vs {m.get('away_team')} ({m.get('result')})" for m in matches[:5]]
         }
     except Exception as e:
-        print(f"API Error for odds {h},{d},{a}: {e}")
+        print(f"Error fetching {h},{d},{a}: {e}")
         return None
 
-# Load target_link.txt and run
+# Load odds from target_link.txt
 results = []
 if os.path.exists('target_link.txt'):
     with open('target_link.txt', 'r') as f:
         for line in f:
             if ',' not in line: continue
             try:
-                # Expecting format: 1.5, 3.4, 5.0
                 odds = [float(x.strip()) for x in line.split(',')]
-                # Pause to respect Rate Limits of the Free Tier
-                time.sleep(1.5) 
+                time.sleep(1.5) # Protects your free tier quota
                 res = fetch_worldwide_history(odds[0], odds[1], odds[2])
                 if res: results.append(res)
-            except Exception as e:
-                print(f"Line skip error: {e}")
-                continue
+            except: continue
 
-# Save the final data for the website
 with open('results.json', 'w') as f:
     json.dump(results, f, indent=4)

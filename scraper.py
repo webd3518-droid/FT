@@ -1,51 +1,37 @@
 import pandas as pd
 import json
 
-# Using the English Premier League database as an example
 DATA_URL = "https://www.football-data.co.uk/mmz4281/2324/E0.csv"
 
-def analyze_odds(h_odds, d_odds, a_odds):
-    df = pd.read_csv(DATA_URL)
+def get_analysis(h, d, a, df):
+    # Search logic
+    match_filter = (df['B365H'].between(h-0.1, h+0.1)) & (df['B365D'].between(d-0.1, d+0.1))
+    matched = df[match_filter].tail(10)
     
-    # Filter matches with similar odds (0.1 range)
-    match_filter = (
-        (df['B365H'].between(h_odds - 0.1, h_odds + 0.1)) &
-        (df['B365D'].between(d_odds - 0.1, d_odds + 0.1))
-    )
+    if matched.empty: return None
     
-    matched_games = df[match_filter].tail(10)
-    
-    if matched_games.empty:
-        analysis = {"error": "No historical matches found for these odds."}
-    else:
-        # Calculate Percentages
-        total = len(matched_games)
-        h_wins = len(matched_games[matched_games['FTR'] == 'H'])
-        draws = len(matched_games[matched_games['FTR'] == 'D'])
-        a_wins = len(matched_games[matched_games['FTR'] == 'A'])
+    total = len(matched)
+    return {
+        "odds": f"{h}/{d}/{a}",
+        "stats": {
+            "H": round((len(matched[matched['FTR']=='H'])/total)*100),
+            "D": round((len(matched[matched['FTR']=='D'])/total)*100),
+            "A": round((len(matched[matched['FTR']=='A'])/total)*100)
+        },
+        "recent": matched.tail(2)['FTR'].tolist(),
+        "history": [f"{r['HomeTeam']} vs {r['AwayTeam']} ({r['FTR']})" for _, r in matched.iterrows()]
+    }
 
-        # Get the 2 most recent outcomes
-        recent = matched_games.tail(2)['FTR'].tolist()
+# Read multiple lines from your text file
+df_hist = pd.read_csv(DATA_URL)
+all_results = []
 
-        analysis = {
-            "stats": {
-                "home_win_pct": round((h_wins / total) * 100),
-                "draw_pct": round((draws / total) * 100),
-                "away_win_pct": round((a_wins / total) * 100)
-            },
-            "recent_outcomes": recent,
-            "history": []
-        }
+with open('target_link.txt', 'r') as f:
+    for line in f:
+        if ',' in line:
+            h, d, a = map(float, line.split(','))
+            res = get_analysis(h, d, a, df_hist)
+            if res: all_results.append(res)
 
-        for _, row in matched_games.iterrows():
-            analysis["history"].append({
-                "match": f"{row['HomeTeam']} vs {row['AwayTeam']}",
-                "result": row['FTR'],
-                "odds": f"{row['B365H']}/{row['B365D']}/{row['B365A']}"
-            })
-    
-    with open('results.json', 'w') as f:
-        json.dump(analysis, f)
-
-# Update these numbers to test a new game!
-analyze_odds(2.10, 3.20, 3.60)
+with open('results.json', 'w') as f:
+    json.dump(all_results, f)

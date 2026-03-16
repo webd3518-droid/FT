@@ -1,21 +1,33 @@
 name: Update Odds
-on: [push] # Runs every time you save a change
+on: 
+  push:
+    branches: [ main ]
+  workflow_dispatch: # This adds a "Run" button so you can test manually
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # This gives the bot permission to save the JSON file
     steps:
       - uses: actions/checkout@v3
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+          
       - name: Install Dependencies
-        run: pip install pandas
+        run: |
+          pip install pandas requests
+          
       - name: Run Scraper
         run: python scraper.py
-      - name: Commit Data
+        
+      - name: Commit and Push
         run: |
-          git config user.name "GitHub Action"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add results.json
-          git commit -m "Updated match data" || exit 0
+          git commit -m "Update match data" || echo "No changes to commit"
           git push

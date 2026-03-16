@@ -1,35 +1,50 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        .game-card { border: 2px solid #333; margin: 20px 0; padding: 15px; border-radius: 10px; font-family: sans-serif; }
-        .win { color: green; font-weight: bold; }
-        .trend { background: #eee; padding: 5px; }
-    </style>
-</head>
-<body>
-    <h1>Multi-Game Analysis</h1>
-    <div id="container"></div>
+import pandas as pd
+import json
 
-    <script>
-        fetch('results.json')
-            .then(res => res.json())
-            .then(data => {
-                const container = document.getElementById('container');
-                data.forEach((game, index) => {
-                    container.innerHTML += `
-                        <div class="game-card">
-                            <h2>Game ${index + 1} (Odds: ${game.odds})</h2>
-                            <p class="win">Likelihood: Home ${game.stats.H}% | Draw ${game.stats.D}% | Away ${game.stats.A}%</p>
-                            <p class="trend">Recent 2 Outcomes: ${game.recent.join(" , ")}</p>
-                            <details>
-                                <summary>View 10 Match History</summary>
-                                <ul>${game.history.map(h => `<li>${h}</li>`).join("")}</ul>
-                            </details>
-                        </div>
-                    `;
-                });
-            });
-    </script>
-</body>
-</html>
+# List of multiple leagues to increase data size
+LEAGUES = [
+    "https://www.football-data.co.uk/mmz4281/2324/E0.csv", # England
+    "https://www.football-data.co.uk/mmz4281/2324/SP1.csv", # Spain
+    "https://www.football-data.co.uk/mmz4281/2324/D1.csv", # Germany
+    "https://www.football-data.co.uk/mmz4281/2324/I1.csv", # Italy
+    "https://www.football-data.co.uk/mmz4281/2324/F1.csv"  # France
+]
+
+def analyze_game(h_odds, d_odds, a_odds, df):
+    # Search with a slightly wider margin (0.15) to ensure we find games
+    match_filter = (
+        (df['B365H'].between(h_odds - 0.15, h_odds + 0.15)) &
+        (df['B365D'].between(d_odds - 0.15, d_odds + 0.15))
+    )
+    matched_games = df[match_filter].tail(10)
+    
+    if matched_games.empty:
+        return None
+
+    total = len(matched_games)
+    h_wins = len(matched_games[matched_games['FTR'] == 'H'])
+    draws = len(matched_games[matched_games['FTR'] == 'D'])
+    a_wins = len(matched_games[matched_games['FTR'] == 'A'])
+
+    return {
+        "target_odds": f"{h_odds}/{d_odds}/{a_odds}",
+        "stats": {"home": round((h_wins/total)*100), "draw": round((draws/total)*100), "away": round((a_wins/total)*100)},
+        "recent": matched_games.tail(2)['FTR'].tolist(),
+        "history": [f"{r['HomeTeam']} v {r['AwayTeam']} ({r['FTR']})" for _, r in matched_games.iterrows()]
+    }
+
+# Combine all leagues into one big database
+all_dfs = [pd.read_csv(url) for url in LEAGUES]
+df_historical = pd.concat(all_dfs, ignore_index=True)
+
+all_results = []
+with open('target_link.txt', 'r') as f:
+    for line in f:
+        try:
+            odds = [float(x.strip()) for x in line.split(',')]
+            res = analyze_game(odds[0], odds[1], odds[2], df_historical)
+            if res: all_results.append(res)
+        except: continue
+
+with open('results.json', 'w') as f:
+    json.dump(all_results, f)

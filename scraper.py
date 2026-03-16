@@ -1,37 +1,35 @@
-import pandas as pd
-import json
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .game-card { border: 2px solid #333; margin: 20px 0; padding: 15px; border-radius: 10px; font-family: sans-serif; }
+        .win { color: green; font-weight: bold; }
+        .trend { background: #eee; padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Multi-Game Analysis</h1>
+    <div id="container"></div>
 
-DATA_URL = "https://www.football-data.co.uk/mmz4281/2324/E0.csv"
-
-def get_analysis(h, d, a, df):
-    # Search logic
-    match_filter = (df['B365H'].between(h-0.1, h+0.1)) & (df['B365D'].between(d-0.1, d+0.1))
-    matched = df[match_filter].tail(10)
-    
-    if matched.empty: return None
-    
-    total = len(matched)
-    return {
-        "odds": f"{h}/{d}/{a}",
-        "stats": {
-            "H": round((len(matched[matched['FTR']=='H'])/total)*100),
-            "D": round((len(matched[matched['FTR']=='D'])/total)*100),
-            "A": round((len(matched[matched['FTR']=='A'])/total)*100)
-        },
-        "recent": matched.tail(2)['FTR'].tolist(),
-        "history": [f"{r['HomeTeam']} vs {r['AwayTeam']} ({r['FTR']})" for _, r in matched.iterrows()]
-    }
-
-# Read multiple lines from your text file
-df_hist = pd.read_csv(DATA_URL)
-all_results = []
-
-with open('target_link.txt', 'r') as f:
-    for line in f:
-        if ',' in line:
-            h, d, a = map(float, line.split(','))
-            res = get_analysis(h, d, a, df_hist)
-            if res: all_results.append(res)
-
-with open('results.json', 'w') as f:
-    json.dump(all_results, f)
+    <script>
+        fetch('results.json')
+            .then(res => res.json())
+            .then(data => {
+                const container = document.getElementById('container');
+                data.forEach((game, index) => {
+                    container.innerHTML += `
+                        <div class="game-card">
+                            <h2>Game ${index + 1} (Odds: ${game.odds})</h2>
+                            <p class="win">Likelihood: Home ${game.stats.H}% | Draw ${game.stats.D}% | Away ${game.stats.A}%</p>
+                            <p class="trend">Recent 2 Outcomes: ${game.recent.join(" , ")}</p>
+                            <details>
+                                <summary>View 10 Match History</summary>
+                                <ul>${game.history.map(h => `<li>${h}</li>`).join("")}</ul>
+                            </details>
+                        </div>
+                    `;
+                });
+            });
+    </script>
+</body>
+</html>

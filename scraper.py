@@ -1,60 +1,67 @@
 import pandas as pd
 import json
 
-# We now check 5 major leagues to find more historical matches
-LEAGUES = [
-    "https://www.football-data.co.uk/mmz4281/2324/E0.csv", # England
-    "https://www.football-data.co.uk/mmz4281/2324/SP1.csv", # Spain
-    "https://www.football-data.co.uk/mmz4281/2324/D1.csv", # Germany
-    "https://www.football-data.co.uk/mmz4281/2324/I1.csv", # Italy
-    "https://www.football-data.co.uk/mmz4281/2324/F1.csv"  # France
+# Expanding the database to multiple seasons and multiple leagues
+# E0 = England, SP1 = Spain, D1 = Germany, I1 = Italy, F1 = France
+SEASON_FILES = [
+    # 2024/2025 (Current)
+    "https://www.football-data.co.uk/mmz4281/2425/E0.csv",
+    "https://www.football-data.co.uk/mmz4281/2425/SP1.csv",
+    # 2023/2024 (Last Season)
+    "https://www.football-data.co.uk/mmz4281/2324/E0.csv",
+    "https://www.football-data.co.uk/mmz4281/2324/SP1.csv",
+    "https://www.football-data.co.uk/mmz4281/2324/D1.csv",
+    "https://www.football-data.co.uk/mmz4281/2324/I1.csv",
+    # 2022/2023 (Two Seasons Ago)
+    "https://www.football-data.co.uk/mmz4281/2223/E0.csv",
+    "https://www.football-data.co.uk/mmz4281/2223/SP1.csv"
 ]
 
-def analyze_game(h_odds, d_odds, a_odds, df):
-    # Search with a slightly wider margin (0.15) to ensure we find games
-    match_filter = (
-        (df['B365H'].between(h_odds - 0.15, h_odds + 0.15)) &
-        (df['B365D'].between(d_odds - 0.15, d_odds + 0.15))
-    )
-    matched_games = df[match_filter].tail(10)
+def analyze_game(h, d, a, big_df):
+    # Margin of 0.20 allows for more historical matches to be found
+    margin = 0.20
+    matches = big_df[
+        (big_df['B365H'].between(h - margin, h + margin)) &
+        (big_df['B365D'].between(d - margin, d + margin))
+    ].tail(10)
     
-    if matched_games.empty:
-        return None
-
-    total = len(matched_games)
-    h_wins = len(matched_games[matched_games['FTR'] == 'H'])
-    draws = len(matched_games[matched_games['FTR'] == 'D'])
-    a_wins = len(matched_games[matched_games['FTR'] == 'A'])
-
+    if matches.empty: return None
+    
+    # Calculate stats
+    total = len(matches)
+    h_wins = len(matches[matches['FTR'] == 'H'])
+    draws = len(matches[matches['FTR'] == 'D'])
+    a_wins = len(matches[matches['FTR'] == 'A'])
+    
     return {
-        "target_odds": f"{h_odds}/{d_odds}/{a_odds}",
+        "target_odds": f"{h}/{d}/{a}",
         "stats": {"home": round((h_wins/total)*100), "draw": round((draws/total)*100), "away": round((a_wins/total)*100)},
-        "recent": matched_games.tail(2)['FTR'].tolist(),
-        "history": [f"{r['HomeTeam']} v {r['AwayTeam']} ({r['FTR']})" for _, r in matched_games.iterrows()]
+        "recent": matches.tail(2)['FTR'].tolist(),
+        "history": [f"{r['HomeTeam']} v {r['AwayTeam']} ({r['FTR']})" for _, r in matches.iterrows()]
     }
 
-# Combine all leagues into one big database
-all_dfs = []
-for url in LEAGUES:
+# 1. Download and combine all files into one "Mega Database"
+all_data = []
+for url in SEASON_FILES:
     try:
-        all_dfs.append(pd.read_csv(url))
+        df = pd.read_csv(url)
+        # Only keep columns we need to save memory
+        all_data.append(df[['HomeTeam', 'AwayTeam', 'FTR', 'B365H', 'B365D', 'B365A']])
     except:
         continue
 
-df_historical = pd.concat(all_dfs, ignore_index=True)
+mega_df = pd.concat(all_data, ignore_index=True)
 
-all_results = []
+# 2. Process your target_link.txt
+results = []
 with open('target_link.txt', 'r') as f:
     for line in f:
         try:
-            line = line.strip()
-            if not line: continue
-            odds = [float(x.strip()) for x in line.split(',')]
-            res = analyze_game(odds[0], odds[1], odds[2], df_historical)
-            if res: 
-                all_results.append(res)
-        except Exception as e:
-            print(f"Skipping line due to error: {line}")
+            o = [float(x.strip()) for x in line.split(',')]
+            analysis = analyze_game(o[0], o[1], o[2], mega_df)
+            if analysis: results.append(analysis)
+        except: continue
 
+# 3. Save
 with open('results.json', 'w') as f:
-    json.dump(all_results, f)
+    json.dump(results, f)

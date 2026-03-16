@@ -1,31 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <title>Multi-Game Odds Analyzer</title>
     <style>
-        .game-card { border: 2px solid #333; margin: 20px 0; padding: 15px; border-radius: 10px; font-family: sans-serif; }
+        .card { border: 2px solid #333; margin: 10px; padding: 15px; border-radius: 10px; display: inline-block; width: 300px; vertical-align: top; background: #f4f4f4; }
         .win { color: green; font-weight: bold; }
-        .trend { background: #eee; padding: 5px; }
     </style>
 </head>
 <body>
-    <h1>Multi-Game Analysis</h1>
-    <div id="container"></div>
+    <h1>Multi-Game Odds Dashboard (up to 17 Games)</h1>
+    <div id="dashboard"></div>
 
     <script>
         fetch('results.json')
             .then(res => res.json())
             .then(data => {
-                const container = document.getElementById('container');
-                data.forEach((game, index) => {
+                const container = document.getElementById('dashboard');
+                data.forEach(game => {
                     container.innerHTML += `
-                        <div class="game-card">
-                            <h2>Game ${index + 1} (Odds: ${game.odds})</h2>
-                            <p class="win">Likelihood: Home ${game.stats.H}% | Draw ${game.stats.D}% | Away ${game.stats.A}%</p>
-                            <p class="trend">Recent 2 Outcomes: ${game.recent.join(" , ")}</p>
-                            <details>
-                                <summary>View 10 Match History</summary>
-                                <ul>${game.history.map(h => `<li>${h}</li>`).join("")}</ul>
-                            </details>
+                        <div class="card">
+                            <h3>Odds: ${game.target_odds}</h3>
+                            <p><b>Probabilities:</b><br>
+                               Home: ${game.stats.home}% | Draw: ${game.stats.draw}% | Away: ${game.stats.away}%
+                            </p>
+                            <p><b>Recent Trend:</b> <span class="win">${game.recent.join(" , ")}</span></p>
+                            <small>History: ${game.history.slice(-3).join(" | ")}...</small>
                         </div>
                     `;
                 });

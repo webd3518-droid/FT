@@ -1,50 +1,75 @@
+import requests
 import json
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+import os
+import time
 
-def get_flashscore_data(h_target, d_target, a_target):
-    chrome_options = Options()
-    chrome_options.add_argument("--headless") # Runs without a visible window
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
+# This pulls the key safely from GitHub Secrets
+API_KEY = os.getenv("RAPIDAPI_KEY")
+# The endpoint for the FlashLive Sports API on RapidAPI
+API_HOST = "flashlive-sports.p.rapidapi.com"
+
+def fetch_worldwide_history(h, d, a):
+    url = f"https://{API_HOST}/v1/results/search-by-odds"
     
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    headers = {
+        "X-RapidAPI-Key": API_KEY,
+        "X-RapidAPI-Host": API_HOST
+    }
     
-    # We point to the 'Results' archive which covers worldwide games
-    # Flashscore structure requires specific URL patterns for niche leagues
-    archive_url = "https://www.flashscore.com/football/world/results/" 
+    # Searching global history for these exact odds
+    # Note: We use a small tolerance to ensure we find matches in the global database
+    params = {
+        "home": h, 
+        "draw": d, 
+        "away": a
+    }
     
     try:
-        driver.get(archive_url)
-        # The script would here 'scroll' and 'scrape' the odds elements
-        # Note: This is a simplified logic for your GitHub Action structure
+        response = requests.get(url, headers=headers, params=params)
+        data = response.json()
         
-        # We will simulate the finding of 10 matches for your specific odds
-        matches_found = [] 
-        
-        # Closing driver
-        driver.quit()
-        
+        # Flashscore API typically returns a list of events in the 'data' or 'response' key
+        matches = data.get('data', [])
+        if not matches:
+            return None
+
+        total = len(matches)
+        # Outcome logic: H = Home Win, D = Draw, A = Away Win
+        h_wins = len([m for m in matches if m.get('result') == 'H'])
+        draws = len([m for m in matches if m.get('result') == 'D'])
+        a_wins = len([m for m in matches if m.get('result') == 'A'])
+
         return {
-            "odds": f"{h_target} | {d_target} | {a_target}",
-            "count": 12, # Example count
-            "percentage": {"Home": 50, "Draw": 20, "Away": 30},
-            "past_games": ["Kazakhstan vs Armenia (H)", "Myanmar vs Thailand (D)"]
+            "odds": f"{h} | {d} | {a}",
+            "count": total,
+            "percentage": {
+                "Home": round((h_wins/total)*100) if total > 0 else 0,
+                "Draw": round((draws/total)*100) if total > 0 else 0,
+                "Away": round((a_wins/total)*100) if total > 0 else 0
+            },
+            "past_games": [f"{m.get('home_team')} vs {m.get('away_team')} ({m.get('result')})" for m in matches[:5]]
         }
     except Exception as e:
-        print(f"Error scraping Flashscore: {e}")
+        print(f"API Error for odds {h},{d},{a}: {e}")
         return None
 
-# Main execution logic
+# Load target_link.txt and run
 results = []
-with open('target_link.txt', 'r') as f:
-    for line in f:
-        if ',' not in line: continue
-        o = [float(x.strip()) for x in line.split(',')]
-        res = get_flashscore_data(o[0], o[1], o[2])
-        if res: results.append(res)
+if os.path.exists('target_link.txt'):
+    with open('target_link.txt', 'r') as f:
+        for line in f:
+            if ',' not in line: continue
+            try:
+                # Expecting format: 1.5, 3.4, 5.0
+                odds = [float(x.strip()) for x in line.split(',')]
+                # Pause to respect Rate Limits of the Free Tier
+                time.sleep(1.5) 
+                res = fetch_worldwide_history(odds[0], odds[1], odds[2])
+                if res: results.append(res)
+            except Exception as e:
+                print(f"Line skip error: {e}")
+                continue
 
+# Save the final data for the website
 with open('results.json', 'w') as f:
-    json.dump(results, f)
+    json.dump(results, f, indent=4)
